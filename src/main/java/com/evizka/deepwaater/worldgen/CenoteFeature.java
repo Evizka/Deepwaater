@@ -3,13 +3,16 @@ package com.evizka.deepwaater.worldgen;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
@@ -149,6 +152,8 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
                 }
             }
         }
+        // 5. Vines go last, when the walls are final, so that none of them hangs in mid-air.
+        hangVines(level, chunk, context.random(), pits);
         return carved;
     }
 
@@ -277,13 +282,6 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
                     state = Blocks.WATER.defaultBlockState();
                 } else {
                     state = Blocks.AIR.defaultBlockState();
-                    // Hanging vines on the walls above the water.
-                    if (dist2 > (r - 1.5) * (r - 1.5) && random.nextFloat() < 0.3F) {
-                        BlockState vine = vineAgainstWall(level, pos, dx, dz, r);
-                        if (vine != null) {
-                            state = vine;
-                        }
-                    }
                 }
                 WorldGenUtil.setBlockInChunk(level, chunk, pos, state);
                 carved = true;
@@ -299,31 +297,62 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
     }
 
     /**
-     * Returns a vine state attached to the wall just outside the pit, or null if there is no solid wall there.
-     * The wall is the neighbour in the direction away from the pit's centre, and it must lie outside radius r
-     * (otherwise it would be carved out later and the vine would hang in mid-air).
+     * Hangs vines on the solid walls of the pits above the water. Runs after all carving, so it
+     * sees the final blocks. A vine is placed only where it is attached to a full, solid face
+     * inside this chunk. Walls in other chunks are skipped, because those chunks may carve them later.
      */
-    private static BlockState vineAgainstWall(WorldGenLevel level, BlockPos pos, int dx, int dz, double r) {
-        int wallDx = dx;
-        int wallDz = dz;
-        BlockState state;
-        if (Math.abs(dx) >= Math.abs(dz)) {
-            wallDx += Integer.signum(dx);
-            state = Blocks.VINE.defaultBlockState().setValue(
-                    dx > 0 ? VineBlock.EAST : VineBlock.WEST, true);
-        } else {
-            wallDz += Integer.signum(dz);
-            state = Blocks.VINE.defaultBlockState().setValue(
-                    dz > 0 ? VineBlock.SOUTH : VineBlock.NORTH, true);
+    private static void hangVines(WorldGenLevel level, ChunkPos chunk, RandomSource random, List<Pit> pits) {
+        for (Pit pit : pits) {
+            int reach = pit.radius() + 2;
+            int minX = Math.max(chunk.getMinBlockX(), pit.x() - reach);
+            int maxX = Math.min(chunk.getMaxBlockX(), pit.x() + reach);
+            int minZ = Math.max(chunk.getMinBlockZ(), pit.z() - reach);
+            int maxZ = Math.min(chunk.getMaxBlockZ(), pit.z() + reach);
+            int minY = Math.max(pit.waterTop() + 1, level.getMinBuildHeight() + 1);
+            int maxY = Math.min(pit.surfaceY(), level.getMaxBuildHeight() - 1);
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    for (int y = minY; y <= maxY; y++) {
+                        BlockPos pos = new BlockPos(x, y, z);
+                        if (!level.getBlockState(pos).isAir() || random.nextFloat() >= 0.3F) {
+                            continue;
+                        }
+                        BlockState vine = attachedVine(level, chunk, pos);
+                        if (vine != null) {
+                            WorldGenUtil.setBlockInChunk(level, chunk, pos, vine);
+                        }
+                    }
+                }
+            }
         }
-        if (wallDx * wallDx + wallDz * wallDz <= r * r) {
-            return null;
+    }
+
+    /** A vine with one face per solid horizontal neighbour inside the chunk, or null if there is none. */
+    private static BlockState attachedVine(WorldGenLevel level, ChunkPos chunk, BlockPos pos) {
+        BlockState vine = Blocks.VINE.defaultBlockState();
+        boolean attached = false;
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos wall = pos.relative(dir);
+            if (!new ChunkPos(wall).equals(chunk)) {
+                continue;
+            }
+            BlockState wallState = level.getBlockState(wall);
+            if (!wallState.isAir() && wallState.getFluidState().isEmpty()
+                    && Block.isFaceFull(wallState.getCollisionShape(level, wall), dir.getOpposite())) {
+                vine = vine.setValue(faceProperty(dir), true);
+                attached = true;
+            }
         }
-        BlockState wallState = level.getBlockState(pos.offset(wallDx - dx, 0, wallDz - dz));
-        if (wallState.isAir() || !wallState.getFluidState().isEmpty()) {
-            return null;
-        }
-        return state;
+        return attached ? vine : null;
+    }
+
+    private static BooleanProperty faceProperty(Direction dir) {
+        return switch (dir) {
+            case NORTH -> VineBlock.NORTH;
+            case EAST -> VineBlock.EAST;
+            case SOUTH -> VineBlock.SOUTH;
+            default -> VineBlock.WEST;
+        };
     }
 
     /** Stable 64-bit hash of the inputs, used instead of random numbers so chunks agree. */

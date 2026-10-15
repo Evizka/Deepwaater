@@ -123,11 +123,17 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         return true;
     }
 
-    /** Highest solid (non-fluid) block at x, z, searching down from startY. MIN_VALUE if there is none nearby. */
+    /**
+     * The top of the ground at x, z, looking at most 3 blocks down from startY.
+     * Returns MIN_VALUE if there is water or lava first (a cenote or pond), or no ground nearby (a hole).
+     */
     private static int findGround(WorldGenLevel level, int x, int startY, int z) {
-        for (int y = startY; y >= startY - 40 && y > level.getMinBuildHeight(); y--) {
+        for (int y = startY; y >= startY - 2 && y > level.getMinBuildHeight(); y--) {
             BlockState state = level.getBlockState(new BlockPos(x, y, z));
-            if (!state.isAir() && state.getFluidState().isEmpty()) {
+            if (!state.getFluidState().isEmpty()) {
+                return Integer.MIN_VALUE;
+            }
+            if (!state.isAir()) {
                 return y;
             }
         }

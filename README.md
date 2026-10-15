@@ -45,10 +45,9 @@ src/main/resources/
   data/deepwaater/loot_table/blocks/ — что выпадает при добыче блоков
   assets/deepwaater/
     blockstates/, models/         — модели блоков и предметов
-    textures/block/               — текстуры (генерируются скриптом, см. ниже)
+    textures/block/               — текстуры блоков (16×16, пиксель-арт)
     lang/                         — названия (en_us, ru_ru)
 tools/
-  generate_textures.py            — генерация 16×16 текстур блоков (только стандартный Python)
   smoke_test_server.py            — проверка на запущенном сервере (используется в CI)
 ```
 
@@ -74,11 +73,8 @@ tools/
 
 ## Текстуры
 
-Текстуры — простые процедурные 16×16. Перегенерировать:
-
-```bash
-python3 tools/generate_textures.py
-```
+Текстуры блоков — 16×16 в стиле Minecraft, лежат в `assets/deepwaater/textures/block/`.
+Чтобы заменить текстуру, положите PNG 16×16 с тем же именем и пересоберите мод.
 
 ## Проверки
 
