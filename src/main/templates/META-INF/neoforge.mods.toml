@@ -1,0 +1,39 @@
+# Mod metadata. Placeholders (${...}) are filled from gradle.properties during the build.
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="Evizka"
+description='''
+Deepwaater adds the "Deep Bog" biome: a swamp with deep sinkholes (cenotes) filled
+with groundwater, and giant mangrove-like trees growing on the surrounding mud.
+Requires TerraBlender.
+'''
+
+# Required: NeoForge itself.
+[[dependencies.${mod_id}]]
+modId="neoforge"
+type="required"
+versionRange="[${neo_version},)"
+ordering="NONE"
+side="BOTH"
+
+# Required: Minecraft version.
+[[dependencies.${mod_id}]]
+modId="minecraft"
+type="required"
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+# Required: TerraBlender adds biomes to the overworld climate map.
+[[dependencies.${mod_id}]]
+modId="terrablender"
+type="required"
+versionRange="[1,)"
+ordering="AFTER"
+side="BOTH"

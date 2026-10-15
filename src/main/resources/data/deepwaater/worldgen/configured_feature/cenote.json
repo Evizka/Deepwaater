@@ -1,0 +1,45 @@
+{
+  "type": "deepwaater:cenote",
+  "config": {
+    "radius": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 4,
+      "max_inclusive": 9
+    },
+    "depth": {
+      "type": "minecraft:uniform",
+      "min_inclusive": 16,
+      "max_inclusive": 40
+    },
+    "water_fraction": 0.55,
+    "floor": {
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "minecraft:clay"
+      }
+    },
+    "rim": {
+      "type": "minecraft:weighted_state_provider",
+      "entries": [
+        {
+          "weight": 3,
+          "data": {
+            "Name": "minecraft:moss_block"
+          }
+        },
+        {
+          "weight": 2,
+          "data": {
+            "Name": "minecraft:mossy_cobblestone"
+          }
+        },
+        {
+          "weight": 1,
+          "data": {
+            "Name": "minecraft:rooted_dirt"
+          }
+        }
+      ]
+    }
+  }
+}
