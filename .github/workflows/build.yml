@@ -46,6 +46,77 @@ jobs:
           path: build-output.log
           if-no-files-found: ignore
 
+      - name: Verify jar contents
+        run: |
+          set -e
+          jar=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
+          echo "Jar: $jar"
+          python3 - "$jar" <<'PY'
+          import json, sys, zipfile
+          path = sys.argv[1]
+          z = zipfile.ZipFile(path)
+          names = set(z.namelist())
+          required = [
+              "META-INF/neoforge.mods.toml",
+              "com/evizka/deepwaater/DeepWaater.class",
+              "com/evizka/deepwaater/worldgen/CenoteFeature.class",
+              "com/evizka/deepwaater/worldgen/SwampTreeFeature.class",
+              "com/evizka/deepwaater/worldgen/DeepBogRegion.class",
+              "data/deepwaater/worldgen/biome/deep_bog.json",
+              "data/deepwaater/worldgen/configured_feature/cenote.json",
+              "data/deepwaater/worldgen/configured_feature/swamp_tree.json",
+              "data/deepwaater/worldgen/placed_feature/cenote.json",
+              "data/deepwaater/worldgen/placed_feature/swamp_tree.json",
+              "assets/deepwaater/lang/en_us.json",
+          ]
+          missing = [n for n in required if n not in names]
+          for n in missing:
+              print(f"::error::Missing in jar: {n}")
+          mods = z.read("META-INF/neoforge.mods.toml").decode()
+          if "${" in mods:
+              print("::error::neoforge.mods.toml still contains unexpanded placeholders")
+              missing.append("placeholders")
+          if 'modId="deepwaater"' not in mods:
+              print("::error::neoforge.mods.toml has no modId deepwaater")
+              missing.append("modId")
+          for n in names:
+              if n.startswith("data/deepwaater/") and n.endswith(".json"):
+                  json.loads(z.read(n))
+          print(f"::notice::Jar OK: {len(names)} entries, {len(required) - len(missing)}/{len(required)} required files present")
+          sys.exit(1 if missing else 0)
+          PY
+
+      - name: Smoke test - start dedicated server with the mod
+        run: |
+          # Starts a real NeoForge server with the mod and TerraBlender, loads all registries
+          # and the Deep Bog biome data, then asks it to stop after 150 seconds.
+          mkdir -p run
+          echo "eula=true" > run/eula.txt
+          set +e
+          (sleep 150; echo "stop") | timeout 420 ./gradlew runServer --no-daemon > server-run.log 2>&1
+          set -e
+          grep -E "Done \(|deepwaater|Deep Waater|TerraBlender|Failed to load|Exception|ERROR" server-run.log | grep -v "Node.js" | head -80 > server-key-lines.log || true
+          cat server-key-lines.log || true
+          if ! grep -q "Done (" server-run.log; then
+            echo "::error::Server did not finish starting"
+            grep -E "Exception|ERROR|error" server-run.log | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
+          if grep -iE "deepwaater" server-run.log | grep -iE "exception|error|failed" > /dev/null; then
+            echo "::error::Deepwaater reported errors while loading"
+            grep -iE "deepwaater" server-run.log | grep -iE "exception|error|failed" | head -20 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
+          echo "::notice::Server started with Deepwaater loaded"
+
+      - name: Upload server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log
+          path: server-run.log
+          if-no-files-found: ignore
+
       - name: List produced jars
         run: ls -la build/libs/
 
