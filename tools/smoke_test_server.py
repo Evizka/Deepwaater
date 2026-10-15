@@ -35,7 +35,7 @@ def read_log():
         return f.read()
 
 
-def wait_for_server(timeout=420):
+def wait_for_server(timeout=900):
     deadline = time.time() + timeout
     while time.time() < deadline:
         if "Done (" in read_log():

@@ -167,7 +167,7 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
         }
         // Only where this chunk and its neighbours are Deep Bog. Then every chunk the pit touches
         // runs this feature and carves its part, so no pit is left half-cut without walls.
-        if (!bogAround(level, generator, randomState, cx, cz)) {
+        if (!bogAround(generator, randomState, cx, cz)) {
             return null;
         }
         RandomSource random = RandomSource.create(h);
@@ -196,16 +196,17 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
         return generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, randomState) - 1;
     }
 
-    /** True if the centres of this chunk and its 8 neighbours are Deep Bog. */
-    private static boolean bogAround(WorldGenLevel level, ChunkGenerator generator, RandomState randomState,
-                                     int cx, int cz) {
+    /**
+     * True if the centres of this chunk and its 8 neighbours are Deep Bog. Only the biome is sampled here
+     * (no terrain heights), because this runs for every candidate pit.
+     */
+    private static boolean bogAround(ChunkGenerator generator, RandomState randomState, int cx, int cz) {
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
                 int x = ((cx + i) << 4) + 8;
                 int z = ((cz + j) << 4) + 8;
-                int y = terrainTop(level, generator, randomState, x, z);
                 boolean bog = generator.getBiomeSource()
-                        .getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z),
+                        .getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(63), QuartPos.fromBlock(z),
                                 randomState.sampler())
                         .is(ModBiomes.DEEP_BOG);
                 if (!bog) {
@@ -221,9 +222,9 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
                                  int x, int z, int radius) {
         int inner = (int) Math.ceil(radius * 1.2) + 1;
         int lowest = Integer.MAX_VALUE;
-        for (int ring = inner; ring <= inner + 4; ring += 2) {
-            for (int k = 0; k < 24; k++) {
-                double a = k * Math.PI / 12.0;
+        for (int ring = inner; ring <= inner + 3; ring += 3) {
+            for (int k = 0; k < 16; k++) {
+                double a = k * Math.PI / 8.0;
                 int px = x + (int) Math.round(Math.cos(a) * ring);
                 int pz = z + (int) Math.round(Math.sin(a) * ring);
                 lowest = Math.min(lowest, terrainTop(level, generator, randomState, px, pz));
