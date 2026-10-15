@@ -25,6 +25,26 @@ final class WorldGenUtil {
         level.setBlock(pos, state, 2);
     }
 
+    /** True if pos lies in the origin chunk or one of its 8 neighbours (the area vanilla features may write to). */
+    static boolean inRegion(BlockPos pos, ChunkPos origin) {
+        ChunkPos target = new ChunkPos(pos);
+        return Math.abs(target.x - origin.x) <= 1 && Math.abs(target.z - origin.z) <= 1;
+    }
+
+    /**
+     * Writes a block anywhere in the 3x3 chunk area around the origin chunk. Used by trees,
+     * so that their crowns and roots are not cut off at chunk borders.
+     */
+    static void setBlockInRegion(WorldGenLevel level, ChunkPos origin, BlockPos pos, BlockState state) {
+        if (!inRegion(pos, origin)) {
+            return;
+        }
+        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
+            return;
+        }
+        level.setBlock(pos, state, 2);
+    }
+
     /** Air or any block that a tree or vine may grow into (water, grass, flowers...). */
     static boolean isReplaceable(BlockState state) {
         return state.isAir() || state.canBeReplaced();

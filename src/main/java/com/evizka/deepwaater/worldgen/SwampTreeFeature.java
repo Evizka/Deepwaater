@@ -53,8 +53,20 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         int trunkHeight = config.height().sample(random);
         int crown = config.crownRadius().sample(random);
         int baseX = origin.getX();
-        int baseY = origin.getY();
         int baseZ = origin.getZ();
+        // The trunk must stand on solid ground (or on the floor of a cenote). Use the lowest ground under
+        // the 2x2 footprint, so that no part of the trunk hangs over an empty hole.
+        int groundY = Integer.MAX_VALUE;
+        for (int dx = 0; dx < 2; dx++) {
+            for (int dz = 0; dz < 2; dz++) {
+                int found = findGround(level, baseX + dx, origin.getY() - 1, baseZ + dz);
+                if (found == Integer.MIN_VALUE) {
+                    return false;
+                }
+                groundY = Math.min(groundY, found);
+            }
+        }
+        int baseY = groundY + 1;
         int topY = baseY + trunkHeight;
 
         // 2x2 trunk from the ground up.
@@ -75,7 +87,7 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
                 }
                 BlockPos pos = new BlockPos(baseX + dx, baseY, baseZ + dz);
                 if (isReplaceable(level, pos)) {
-                    WorldGenUtil.setBlockInChunk(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
+                    WorldGenUtil.setBlockInRegion(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
                 }
             }
         }
@@ -109,6 +121,17 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
                     Math.max(2, crown * 2 / 3 + random.nextInt(2)));
         }
         return true;
+    }
+
+    /** Highest solid (non-fluid) block at x, z, searching down from startY. MIN_VALUE if there is none nearby. */
+    private static int findGround(WorldGenLevel level, int x, int startY, int z) {
+        for (int y = startY; y >= startY - 40 && y > level.getMinBuildHeight(); y--) {
+            BlockState state = level.getBlockState(new BlockPos(x, y, z));
+            if (!state.isAir() && state.getFluidState().isEmpty()) {
+                return y;
+            }
+        }
+        return Integer.MIN_VALUE;
     }
 
     /** A root that goes straight down from the trunk, 8–15 blocks deep. */
@@ -152,8 +175,8 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
      * so the root stops there.
      */
     private static boolean placeRoot(WorldGenLevel level, ChunkPos chunk, BlockPos pos) {
-        if (!new ChunkPos(pos).equals(chunk)) {
-            // Outside this chunk: keep going, the neighbouring chunk writes its own part.
+        if (!WorldGenUtil.inRegion(pos, chunk)) {
+            // Far outside the writable area: keep going, the blocks there are skipped.
             return true;
         }
         BlockState state = level.getBlockState(pos);
@@ -162,7 +185,7 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         // Dirt, mud, sand, gravel, clay and ordinary stone are fine; ores and deepslate stop the root.
         boolean soft = hardness >= 0.0F && hardness <= 2.0F;
         if (open || soft) {
-            WorldGenUtil.setBlockInChunk(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
+            WorldGenUtil.setBlockInRegion(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
             return true;
         }
         return false;
@@ -172,7 +195,7 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         if (!isReplaceable(level, pos)) {
             return;
         }
-        WorldGenUtil.setBlockInChunk(level, chunk, pos, config.trunk().getState(random, pos));
+        WorldGenUtil.setBlockInRegion(level, chunk, pos, config.trunk().getState(random, pos));
     }
 
     /**
@@ -198,7 +221,7 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
                     if (leaf.hasProperty(LeavesBlock.PERSISTENT)) {
                         leaf = leaf.setValue(LeavesBlock.PERSISTENT, true);
                     }
-                    WorldGenUtil.setBlockInChunk(level, chunk, pos, leaf);
+                    WorldGenUtil.setBlockInRegion(level, chunk, pos, leaf);
                 }
             }
         }
