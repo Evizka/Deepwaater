@@ -1,4 +1,4 @@
-# Mod metadata. Placeholders (${...}) are filled from gradle.properties during the build.
+# Mod metadata. Placeholders such as the mod id are filled from gradle.properties during the build.
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
