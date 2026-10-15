@@ -106,7 +106,10 @@ def run_checks(rcon):
         fail("Deep Bog biome was not found near spawn (may just be rare, check the seed)")
 
     # 2. Swamp tree: place it and check that its trunk and deep roots exist.
-    out = rcon.command("place feature deepwaater:swamp_tree 0 80 0")
+    # The tree needs real ground under its base (like the game's heightmap placement gives it).
+    # Put a grass floor at y=61 and stand the tree on it, at y=62.
+    rcon.command("fill -2 61 -2 3 61 3 minecraft:grass_block")
+    out = rcon.command("place feature deepwaater:swamp_tree 0 62 0")
     notice(f"place swamp_tree: {out.strip()[:200]}")
     if any(word in out.lower() for word in ("failed", "unknown", "error")):
         fail(f"swamp_tree placement failed: {out.strip()[:200]}")
