@@ -16,11 +16,11 @@ import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfigur
 import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
 
 /**
- * A very tall tree with a 2x2 trunk, a wide crown and long branches.
+ * A tall swamp tree with a 2x2 trunk, bending limbs and leafy crowns.
  *
- * Its roots are the important part of the bog: a taproot and several spreading roots
- * go down into the ground (through soil, mud and soft stone) instead of only sticking up
- * at the base. Leaves are persistent, so they do not decay.
+ * Roots only grow into solid soil and stone, and only where something solid holds them up.
+ * So they never hang in the air, and they never stick out over water or a cenote.
+ * Leaves are persistent, so they do not decay.
  */
 public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
 
@@ -54,8 +54,8 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         int crown = config.crownRadius().sample(random);
         int baseX = origin.getX();
         int baseZ = origin.getZ();
-        // The trunk must stand on solid ground (or on the floor of a cenote). Use the lowest ground under
-        // the 2x2 footprint, so that no part of the trunk hangs over an empty hole.
+        // The trunk must stand on solid ground. Use the lowest ground under the 2x2 footprint, and
+        // refuse the spot if there is water, a cenote or a hole there.
         int groundY = Integer.MAX_VALUE;
         for (int dx = 0; dx < 2; dx++) {
             for (int dz = 0; dz < 2; dz++) {
@@ -78,17 +78,15 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
             }
         }
 
-        // Roots that stick up around the base of the trunk.
+        // Roots that come out of the soil around the base. They start at the ground level, so
+        // placeRoot only replaces solid soil, and nothing sticks up in the air.
         for (int dx = -1; dx <= 2; dx++) {
             for (int dz = -1; dz <= 2; dz++) {
                 boolean insideTrunk = dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1;
                 if (insideTrunk || random.nextFloat() > 0.35F) {
                     continue;
                 }
-                BlockPos pos = new BlockPos(baseX + dx, baseY, baseZ + dz);
-                if (isReplaceable(level, pos)) {
-                    WorldGenUtil.setBlockInRegion(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
-                }
+                placeRoot(level, chunk, new BlockPos(baseX + dx, groundY, baseZ + dz));
             }
         }
 
@@ -99,28 +97,70 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         // Main crown on top of the trunk.
         placeCrown(level, chunk, random, config, new BlockPos(baseX, topY, baseZ), crown + 2);
 
-        // Long branches. Each one ends in its own smaller crown.
-        int branches = 4 + random.nextInt(3);
-        for (int i = 0; i < branches; i++) {
-            double angle = random.nextDouble() * Math.PI * 2.0;
-            double cos = Math.cos(angle);
-            double sin = Math.sin(angle);
-            int startY = topY - crown - random.nextInt(Math.max(1, trunkHeight / 3));
-            int length = crown + 2 + random.nextInt(crown + 2);
-
-            int endX = baseX;
-            int endY = startY;
-            int endZ = baseZ;
-            for (int s = 1; s <= length; s++) {
-                endX = baseX + (int) Math.round(cos * s);
-                endZ = baseZ + (int) Math.round(sin * s);
-                endY = startY + s / 3;
-                placeWood(level, chunk, random, config, new BlockPos(endX, endY, endZ));
-            }
-            placeCrown(level, chunk, random, config, new BlockPos(endX, endY, endZ),
-                    Math.max(2, crown * 2 / 3 + random.nextInt(2)));
+        // Limbs leave the upper trunk in several directions and spread evenly around it.
+        int limbs = 5 + random.nextInt(3);
+        for (int i = 0; i < limbs; i++) {
+            double angle = (i + random.nextDouble()) * Math.PI * 2.0 / limbs;
+            int startY = topY - 2 - random.nextInt(Math.max(2, trunkHeight / 3));
+            growLimb(level, chunk, random, config, new BlockPos(baseX, startY, baseZ), angle,
+                    9 + random.nextInt(6), crown, 0);
         }
         return true;
+    }
+
+    /**
+     * A limb that grows outward, bends and droops towards its tip. Limbs of the first level can split
+     * into twigs. Each tip ends in a leafy crown.
+     */
+    private static void growLimb(WorldGenLevel level, ChunkPos chunk, RandomSource random, Config config,
+                                 BlockPos start, double angle, int length, int crown, int depth) {
+        double x = start.getX() + 0.5;
+        double y = start.getY() + 0.5;
+        double z = start.getZ() + 0.5;
+        double heading = angle;
+        BlockPos last = start;
+        for (int step = 1; step <= length; step++) {
+            double progress = step / (double) length;
+            // Wobble a little, so the limb is not a straight line.
+            heading += (random.nextDouble() - 0.5) * 0.35;
+            double speed = depth == 0 ? 0.85 : 0.7;
+            x += Math.cos(heading) * speed;
+            z += Math.sin(heading) * speed;
+            // Rises a little near the trunk, then droops towards the tip.
+            y += 0.2 - 0.7 * progress + (random.nextDouble() - 0.5) * 0.15;
+
+            BlockPos next = new BlockPos((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
+            connect(level, chunk, random, config, last, next);
+            last = next;
+
+            // Twigs from the middle of a main limb.
+            if (depth == 0 && step > 3 && step < length - 2 && random.nextFloat() < 0.35F) {
+                double side = heading + (random.nextBoolean() ? 1 : -1) * (0.7 + random.nextDouble() * 0.5);
+                growLimb(level, chunk, random, config, last, side, 4 + random.nextInt(3), crown, depth + 1);
+            }
+        }
+        int tipRadius = depth == 0 ? Math.max(3, crown * 2 / 3) : 2 + random.nextInt(2);
+        placeCrown(level, chunk, random, config, last, tipRadius);
+    }
+
+    /** Joins two block positions with a line of wood: first along x, then z, then y. Keeps branches connected. */
+    private static void connect(WorldGenLevel level, ChunkPos chunk, RandomSource random, Config config,
+                                BlockPos from, BlockPos to) {
+        int x = from.getX();
+        int y = from.getY();
+        int z = from.getZ();
+        while (x != to.getX()) {
+            x += Integer.signum(to.getX() - x);
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+        }
+        while (z != to.getZ()) {
+            z += Integer.signum(to.getZ() - z);
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+        }
+        while (y != to.getY()) {
+            y += Integer.signum(to.getY() - y);
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+        }
     }
 
     /**
@@ -176,9 +216,9 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
     }
 
     /**
-     * Puts one root block at pos if the spot is free or is soft ground.
-     * Returns false when the root hits something it cannot grow through (bedrock, ore, deepslate...),
-     * so the root stops there.
+     * Puts one root block at pos. Returns false when the root cannot go there, so it stops:
+     * the spot is air, water or a cave, the block below is not solid (the root would hang),
+     * or the block is too hard (ore, deepslate, bedrock).
      */
     private static boolean placeRoot(WorldGenLevel level, ChunkPos chunk, BlockPos pos) {
         if (!WorldGenUtil.inRegion(pos, chunk)) {
@@ -186,15 +226,20 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
             return true;
         }
         BlockState state = level.getBlockState(pos);
-        boolean open = state.isAir() || !state.getFluidState().isEmpty();
-        float hardness = state.getDestroySpeed(level, pos);
-        // Dirt, mud, sand, gravel, clay and ordinary stone are fine; ores and deepslate stop the root.
-        boolean soft = hardness >= 0.0F && hardness <= 2.0F;
-        if (open || soft) {
-            WorldGenUtil.setBlockInRegion(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
-            return true;
+        if (state.isAir() || !state.getFluidState().isEmpty()) {
+            return false;
         }
-        return false;
+        // Dirt, mud, sand, gravel, clay and ordinary stone are fine; ores and deepslate stop the root.
+        float hardness = state.getDestroySpeed(level, pos);
+        if (hardness < 0.0F || hardness > 2.0F) {
+            return false;
+        }
+        BlockState below = level.getBlockState(pos.below());
+        if (below.isAir() || !below.getFluidState().isEmpty()) {
+            return false;
+        }
+        WorldGenUtil.setBlockInRegion(level, chunk, pos, ModBlocks.DEEP_BOG_ROOTS.get().defaultBlockState());
+        return true;
     }
 
     private static void placeWood(WorldGenLevel level, ChunkPos chunk, RandomSource random, Config config, BlockPos pos) {

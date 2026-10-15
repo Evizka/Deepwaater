@@ -4,6 +4,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.QuartPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.level.ChunkPos;
@@ -164,23 +165,71 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
         if (unit(h) >= config.chance()) {
             return null;
         }
+        // Only where this chunk and its neighbours are Deep Bog. Then every chunk the pit touches
+        // runs this feature and carves its part, so no pit is left half-cut without walls.
+        if (!bogAround(level, generator, randomState, cx, cz)) {
+            return null;
+        }
         RandomSource random = RandomSource.create(h);
         int radius = config.radius().sample(random);
         int depth = config.depth().sample(random);
         int x = (cx << 4) + 3 + random.nextInt(10);
         int z = (cz << 4) + 3 + random.nextInt(10);
 
-        // Surface height from the terrain noise, so it is known even for chunks that are not generated yet.
-        int surfaceY = generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, randomState) - 1;
+        int surfaceY = terrainTop(level, generator, randomState, x, z);
         int bottomY = Math.max(level.getMinBuildHeight() + 2, surfaceY - depth);
         int height = surfaceY - bottomY;
         if (height < 8) {
             return null;
         }
-        int waterTop = bottomY + Math.round(height * config.waterFraction());
+        // The water must stay below the lowest ground around the pit. Otherwise it would spill over
+        // the rim and hang in the air above lower terrain.
+        int rimY = rimHeight(level, generator, randomState, x, z, radius);
+        int waterTop = Math.max(bottomY, Math.min(bottomY + Math.round(height * config.waterFraction()), rimY - 3));
         // Tunnels run just above the water line, so they stay dry.
-        int tunnelY = Math.min(waterTop + 2, surfaceY - 3);
+        int tunnelY = Math.max(bottomY + 3, Math.min(waterTop + 2, surfaceY - 3));
         return new Pit(x, z, surfaceY, bottomY, waterTop, tunnelY, radius, (int) (h ^ (h >>> 32)));
+    }
+
+    /** Height of the top solid block from the terrain noise. The same in every chunk, even ungenerated ones. */
+    private static int terrainTop(WorldGenLevel level, ChunkGenerator generator, RandomState randomState, int x, int z) {
+        return generator.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, level, randomState) - 1;
+    }
+
+    /** True if the centres of this chunk and its 8 neighbours are Deep Bog. */
+    private static boolean bogAround(WorldGenLevel level, ChunkGenerator generator, RandomState randomState,
+                                     int cx, int cz) {
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int x = ((cx + i) << 4) + 8;
+                int z = ((cz + j) << 4) + 8;
+                int y = terrainTop(level, generator, randomState, x, z);
+                boolean bog = generator.getBiomeSource()
+                        .getNoiseBiome(QuartPos.fromBlock(x), QuartPos.fromBlock(y), QuartPos.fromBlock(z),
+                                randomState.sampler())
+                        .is(ModBiomes.DEEP_BOG);
+                if (!bog) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** The lowest ground in rings just outside the pit (the widest the pit can get). */
+    private static int rimHeight(WorldGenLevel level, ChunkGenerator generator, RandomState randomState,
+                                 int x, int z, int radius) {
+        int inner = (int) Math.ceil(radius * 1.2) + 1;
+        int lowest = Integer.MAX_VALUE;
+        for (int ring = inner; ring <= inner + 4; ring += 2) {
+            for (int k = 0; k < 24; k++) {
+                double a = k * Math.PI / 12.0;
+                int px = x + (int) Math.round(Math.cos(a) * ring);
+                int pz = z + (int) Math.round(Math.sin(a) * ring);
+                lowest = Math.min(lowest, terrainTop(level, generator, randomState, px, pz));
+            }
+        }
+        return lowest;
     }
 
     private static boolean pitTouchesChunk(Pit pit, ChunkPos chunk) {
@@ -199,26 +248,25 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
                 && maxZ >= chunk.getMinBlockZ() && minZ <= chunk.getMaxBlockZ();
     }
 
-    /** Carves a tunnel as a chain of spheres along the line between the two pit centres. */
+    /** Carves a dry tunnel as a chain of spheres along the line between the two pit centres. */
     private static void carveTunnel(WorldGenLevel level, ChunkPos chunk, Tunnel tunnel) {
         Pit a = tunnel.a();
         Pit b = tunnel.b();
         double dx = b.x() - a.x();
         double dz = b.z() - a.z();
         int steps = (int) Math.ceil(Math.sqrt(dx * dx + dz * dz) * 2.0);
-        int waterLevel = Math.min(a.waterTop(), b.waterTop());
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
             double px = a.x() + 0.5 + dx * t;
             double pz = a.z() + 0.5 + dz * t;
             // A gentle wave in height makes the tunnel look natural instead of perfectly flat.
             double py = a.tunnelY() + (b.tunnelY() - a.tunnelY()) * t + 1.5 * Math.sin(t * Math.PI * 2.0);
-            carveSphere(level, chunk, px, py, pz, tunnel.radius(), waterLevel);
+            carveSphere(level, chunk, px, py, pz, tunnel.radius());
         }
     }
 
     private static void carveSphere(WorldGenLevel level, ChunkPos chunk, double px, double py, double pz,
-                                    int radius, int waterLevel) {
+                                    int radius) {
         int minX = Math.max(chunk.getMinBlockX(), (int) Math.floor(px) - radius);
         int maxX = Math.min(chunk.getMaxBlockX(), (int) Math.floor(px) + radius);
         int minZ = Math.max(chunk.getMinBlockZ(), (int) Math.floor(pz) - radius);
@@ -240,8 +288,7 @@ public class CenoteFeature extends Feature<CenoteFeature.Config> {
                     if (level.getBlockState(pos).is(Blocks.BEDROCK)) {
                         continue;
                     }
-                    BlockState state = y <= waterLevel ? Blocks.WATER.defaultBlockState() : Blocks.AIR.defaultBlockState();
-                    WorldGenUtil.setBlockInChunk(level, chunk, pos, state);
+                    WorldGenUtil.setBlockInChunk(level, chunk, pos, Blocks.AIR.defaultBlockState());
                 }
             }
         }
