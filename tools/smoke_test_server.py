@@ -110,8 +110,12 @@ def run_checks(rcon):
     notice(f"place swamp_tree: {out.strip()[:200]}")
     if any(word in out.lower() for word in ("failed", "unknown", "error")):
         fail(f"swamp_tree placement failed: {out.strip()[:200]}")
-    rcon.command("execute if block 0 81 0 deepwaater:deep_bog_log run say SMOKE_TRUNK_OK")
-    rcon.command("execute if block 0 75 0 deepwaater:deep_bog_roots run say SMOKE_ROOTS_OK")
+    # The tree now stands on the real ground, which can be well below y=80, so scan a whole
+    # column of y values instead of checking one fixed block.
+    for y in range(40, 92):
+        rcon.command(f"execute if block 0 {y} 0 deepwaater:deep_bog_log run say SMOKE_TRUNK_OK")
+    for y in range(30, 92):
+        rcon.command(f"execute if block 0 {y} 0 deepwaater:deep_bog_roots run say SMOKE_ROOTS_OK")
 
     # 3. Cenote network: place a cenote feature and check it does not throw.
     out = rcon.command("place feature deepwaater:cenote 0 80 0")
