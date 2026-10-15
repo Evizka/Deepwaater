@@ -27,7 +27,24 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build mod jar
-        run: ./gradlew build --no-daemon
+        id: build
+        run: |
+          set +e
+          ./gradlew build --no-daemon --stacktrace > build-output.log 2>&1
+          code=$?
+          # Surface compiler and Gradle errors as annotations so they can be read without the raw log.
+          grep -E "error:|What went wrong|Execution failed|FAILED|Could not|Caused by" build-output.log | head -60 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
+          exit $code
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-output.log
+          if-no-files-found: ignore
 
       - name: List produced jars
         run: ls -la build/libs/
