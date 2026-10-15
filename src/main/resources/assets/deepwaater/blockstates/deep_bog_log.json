@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "deepwaater:block/deep_bog_log"
+    },
+    "axis=x": {
+      "model": "deepwaater:block/deep_bog_log_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=z": {
+      "model": "deepwaater:block/deep_bog_log_horizontal",
+      "x": 90
+    }
+  }
+}

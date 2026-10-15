@@ -12,34 +12,20 @@
       "max_inclusive": 40
     },
     "water_fraction": 0.55,
+    "chance": 0.35,
+    "link_chance": 0.6,
+    "tunnel_radius": 2,
     "floor": {
       "type": "minecraft:simple_state_provider",
       "state": {
-        "Name": "minecraft:clay"
+        "Name": "deepwaater:bog_mud"
       }
     },
     "rim": {
-      "type": "minecraft:weighted_state_provider",
-      "entries": [
-        {
-          "weight": 3,
-          "data": {
-            "Name": "minecraft:moss_block"
-          }
-        },
-        {
-          "weight": 2,
-          "data": {
-            "Name": "minecraft:mossy_cobblestone"
-          }
-        },
-        {
-          "weight": 1,
-          "data": {
-            "Name": "minecraft:rooted_dirt"
-          }
-        }
-      ]
+      "type": "minecraft:simple_state_provider",
+      "state": {
+        "Name": "deepwaater:bog_moss"
+      }
     }
   }
 }

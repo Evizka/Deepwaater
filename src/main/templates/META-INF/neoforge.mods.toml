@@ -10,7 +10,8 @@ displayName="${mod_name}"
 authors="Evizka"
 description='''
 Deepwaater adds the "Deep Bog" biome: a swamp with deep sinkholes (cenotes) filled
-with groundwater, and giant mangrove-like trees growing on the surrounding mud.
+with groundwater, connected by underground tunnels, and giant swamp trees with
+deep roots. Adds its own blocks (bog log, leaves, roots, mud, moss).
 Requires TerraBlender.
 '''
 

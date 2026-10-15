@@ -1,5 +1,7 @@
 package com.evizka.deepwaater;
 
+import com.evizka.deepwaater.block.ModBlocks;
+import com.evizka.deepwaater.item.ModItems;
 import com.evizka.deepwaater.worldgen.DeepBogRegion;
 import com.evizka.deepwaater.worldgen.ModFeatures;
 import com.mojang.logging.LogUtils;
@@ -17,7 +19,12 @@ public class DeepWaater {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public DeepWaater(IEventBus modEventBus) {
-        // Register custom world generation features (cenote pits and giant swamp trees).
+        // Blocks, block items and the creative tab.
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
+        ModItems.CREATIVE_TABS.register(modEventBus);
+
+        // World generation features: cenote network and swamp trees.
         ModFeatures.FEATURES.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
@@ -28,7 +35,7 @@ public class DeepWaater {
         event.enqueueWork(() -> {
             // Weight 2 keeps the bog rare compared to vanilla biomes.
             Regions.register(new DeepBogRegion(ResourceLocation.fromNamespaceAndPath(MOD_ID, "overworld"), 2));
-            LOGGER.info("Deep Waater: registered Deep Bog overworld region");
+            LOGGER.info("Deepwaater: registered Deep Bog overworld region");
         });
     }
 }

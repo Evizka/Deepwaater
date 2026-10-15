@@ -14,13 +14,13 @@
     "trunk": {
       "type": "minecraft:simple_state_provider",
       "state": {
-        "Name": "minecraft:mangrove_log"
+        "Name": "deepwaater:deep_bog_log"
       }
     },
     "leaves": {
       "type": "minecraft:simple_state_provider",
       "state": {
-        "Name": "minecraft:mangrove_leaves"
+        "Name": "deepwaater:deep_bog_leaves"
       }
     }
   }

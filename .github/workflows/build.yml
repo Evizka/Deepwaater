@@ -86,28 +86,30 @@ jobs:
           sys.exit(1 if missing else 0)
           PY
 
-      - name: Smoke test - start dedicated server with the mod
+      - name: Smoke test - run dedicated server with the mod
         run: |
-          # Starts a real NeoForge server with the mod and TerraBlender, loads all registries
-          # and the Deep Bog biome data, then asks it to stop after 150 seconds.
+          # Starts a real NeoForge server with the mod and TerraBlender. The Python script waits
+          # for it to start, places the swamp tree and cenotes through RCON, checks the blocks,
+          # and then stops the server.
           mkdir -p run
           echo "eula=true" > run/eula.txt
+          cat > run/server.properties <<'EOF'
+          enable-rcon=true
+          rcon.port=25575
+          rcon.password=ci-smoke-test
+          broadcast-rcon-to-ops=false
+          level-seed=20261015
+          spawn-protection=0
+          EOF
+          timeout 1200 ./gradlew runServer --no-daemon > server-run.log 2>&1 &
+          server_pid=$!
           set +e
-          (sleep 150; echo "stop") | timeout 420 ./gradlew runServer --no-daemon > server-run.log 2>&1
+          python3 tools/smoke_test_server.py server-run.log
+          smoke=$?
+          wait $server_pid
           set -e
-          grep -E "Done \(|deepwaater|Deep Waater|TerraBlender|Failed to load|Exception|ERROR" server-run.log | grep -v "Node.js" | head -80 > server-key-lines.log || true
-          cat server-key-lines.log || true
-          if ! grep -q "Done (" server-run.log; then
-            echo "::error::Server did not finish starting"
-            grep -E "Exception|ERROR|error" server-run.log | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
-            exit 1
-          fi
-          if grep -iE "deepwaater" server-run.log | grep -iE "exception|error|failed" > /dev/null; then
-            echo "::error::Deepwaater reported errors while loading"
-            grep -iE "deepwaater" server-run.log | grep -iE "exception|error|failed" | head -20 | while IFS= read -r line; do echo "::error::${line}"; done
-            exit 1
-          fi
-          echo "::notice::Server started with Deepwaater loaded"
+          grep -E "Done \(|Deepwaater|deepwaater|TerraBlender|Exception|ERROR" server-run.log | grep -v "Node.js" | head -80 || true
+          exit $smoke
 
       - name: Upload server log
         if: always()

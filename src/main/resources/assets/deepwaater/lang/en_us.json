@@ -1,3 +1,9 @@
 {
-  "biome.deepwaater.deep_bog": "Deep Bog"
+  "biome.deepwaater.deep_bog": "Deep Bog",
+  "block.deepwaater.deep_bog_log": "Deep Bog Log",
+  "block.deepwaater.deep_bog_leaves": "Deep Bog Leaves",
+  "block.deepwaater.deep_bog_roots": "Bog Roots",
+  "block.deepwaater.bog_mud": "Bog Mud",
+  "block.deepwaater.bog_moss": "Bog Moss",
+  "itemGroup.deepwaater": "Deepwaater"
 }

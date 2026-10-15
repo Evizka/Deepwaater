@@ -1,3 +1,9 @@
 {
-  "biome.deepwaater.deep_bog": "Глубокое болото"
+  "biome.deepwaater.deep_bog": "Глубокое болото",
+  "block.deepwaater.deep_bog_log": "Бревно глубокого болота",
+  "block.deepwaater.deep_bog_leaves": "Листва глубокого болота",
+  "block.deepwaater.deep_bog_roots": "Корни болота",
+  "block.deepwaater.bog_mud": "Болотный ил",
+  "block.deepwaater.bog_moss": "Болотный мох",
+  "itemGroup.deepwaater": "Deepwaater"
 }
