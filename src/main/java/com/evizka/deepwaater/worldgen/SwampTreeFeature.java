@@ -4,11 +4,13 @@ import com.evizka.deepwaater.block.ModBlocks;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
@@ -73,7 +75,7 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         for (int y = 0; y < trunkHeight; y++) {
             for (int dx = 0; dx < 2; dx++) {
                 for (int dz = 0; dz < 2; dz++) {
-                    placeWood(level, chunk, random, config, new BlockPos(baseX + dx, baseY + y, baseZ + dz));
+                    placeWood(level, chunk, random, config, new BlockPos(baseX + dx, baseY + y, baseZ + dz), Direction.Axis.Y);
                 }
             }
         }
@@ -151,15 +153,15 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         int z = from.getZ();
         while (x != to.getX()) {
             x += Integer.signum(to.getX() - x);
-            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z), Direction.Axis.X);
         }
         while (z != to.getZ()) {
             z += Integer.signum(to.getZ() - z);
-            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z), Direction.Axis.Z);
         }
         while (y != to.getY()) {
             y += Integer.signum(to.getY() - y);
-            placeWood(level, chunk, random, config, new BlockPos(x, y, z));
+            placeWood(level, chunk, random, config, new BlockPos(x, y, z), Direction.Axis.Y);
         }
     }
 
@@ -242,11 +244,17 @@ public class SwampTreeFeature extends Feature<SwampTreeFeature.Config> {
         return true;
     }
 
-    private static void placeWood(WorldGenLevel level, ChunkPos chunk, RandomSource random, Config config, BlockPos pos) {
+    /** Puts a piece of the trunk or a limb. The axis is the direction the wood runs, so limbs lie sideways. */
+    private static void placeWood(WorldGenLevel level, ChunkPos chunk, RandomSource random, Config config,
+                                  BlockPos pos, Direction.Axis axis) {
         if (!isReplaceable(level, pos)) {
             return;
         }
-        WorldGenUtil.setBlockInRegion(level, chunk, pos, config.trunk().getState(random, pos));
+        BlockState state = config.trunk().getState(random, pos);
+        if (state.hasProperty(RotatedPillarBlock.AXIS)) {
+            state = state.setValue(RotatedPillarBlock.AXIS, axis);
+        }
+        WorldGenUtil.setBlockInRegion(level, chunk, pos, state);
     }
 
     /**
