@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "deepwaater:block/deep_bog_roots"
+    "all": "minecraft:block/rooted_dirt"
   }
 }

@@ -45,7 +45,7 @@ src/main/resources/
   data/deepwaater/loot_table/blocks/ — что выпадает при добыче блоков
   assets/deepwaater/
     blockstates/, models/         — модели блоков и предметов
-    textures/block/               — текстуры блоков (16×16, пиксель-арт)
+    textures/block/               — собственные текстуры (бревно, листва)
     lang/                         — названия (en_us, ru_ru)
 tools/
   smoke_test_server.py            — проверка на запущенном сервере (используется в CI)
@@ -73,8 +73,10 @@ tools/
 
 ## Текстуры
 
-Текстуры блоков — 16×16 в стиле Minecraft, лежат в `assets/deepwaater/textures/block/`.
-Чтобы заменить текстуру, положите PNG 16×16 с тем же именем и пересоберите мод.
+Бревно и листва — собственные текстуры мода (`assets/deepwaater/textures/block/`).
+Мох, ил и корни используют встроенные текстуры Minecraft (`moss_block`, `mud`, `rooted_dirt`),
+поэтому выглядят как ванильные блоки. Блоки при этом остаются собственными: свои имена, добыча и мир.
+Чтобы заменить текстуру, положите PNG 16×16 с тем же именем в `textures/block/` и поменяйте путь в `models/block/`.
 
 ## Проверки
 
