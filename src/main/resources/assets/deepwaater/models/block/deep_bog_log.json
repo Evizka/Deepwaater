@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:block/cube_column",
   "textures": {
-    "end": "deepwaater:block/deep_bog_log_top",
-    "side": "deepwaater:block/deep_bog_log"
+    "end": "minecraft:block/mangrove_log_top",
+    "side": "minecraft:block/mangrove_log"
   }
 }
